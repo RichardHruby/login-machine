@@ -16,13 +16,15 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/RichardHruby/login-machine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License"></a>
-  <a href="https://github.com/RichardHruby/login-machine/stargazers"><img src="https://img.shields.io/github/stars/RichardHruby/login-machine?style=flat-square" alt="GitHub stars"></a>
+  <a href="https://github.com/RichardHruby/login-machine/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License"></a>
+  <a href="https://github.com/RichardHruby/login-machine/stargazers"><img src="https://img.shields.io/github/stars/RichardHruby/login-machine?style=flat-square&label=Stars" alt="GitHub Stars"></a>
+  <a href="https://x.com/HrubyOnRails/status/2022039848048361807"><img src="https://img.shields.io/badge/Article-black?style=flat-square&logo=x&logoColor=white" alt="Blog Post"></a>
   <a href="https://login-machine.vercel.app/"><img src="https://img.shields.io/badge/Try_the_Demo-black?style=flat-square" alt="Live Demo"></a>
 </p>
 
 <p align="center">
   <a href="https://login-machine.vercel.app/">Try the live demo</a> •
+  <a href="https://x.com/HrubyOnRails/status/2022039848048361807">Article</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#how-it-works">How It Works</a> •
   <a href="#screen-types">Screen Types</a> •
