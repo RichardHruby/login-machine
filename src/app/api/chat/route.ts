@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
         .catch(() => {});
 
       return ok({
-        sessionId: session.id,
+        sessionId: session.sessionId,
         liveViewUrl: session.liveViewUrl,
         screen: { type: "loading_screen" },
         screenshot: null,
@@ -144,8 +144,7 @@ export async function POST(request: NextRequest) {
       if (!parsed.success) return err(parsed.error.issues[0].message, 400);
 
       const { sessionId, screen, values } = parsed.data;
-      const session = getSession(sessionId);
-      if (!session) return err("Session not found", 404);
+      const session = await getSession(sessionId);
 
       // Determine if this is a user-initiated action (has actual values)
       const hasUserInput = Object.values(values).some((v) => v);

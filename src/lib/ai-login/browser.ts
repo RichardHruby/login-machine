@@ -1,10 +1,12 @@
 /**
  * Browser automation layer — BrowserBase only.
  *
- * Creates cloud browser sessions via the BrowserBase API, connects over CDP
- * with Playwright, and exposes helpers for page context extraction and form
- * interaction. Credentials never pass through this module's logs; values are
- * written directly to the DOM.
+ * Stateless design for serverless: every request connects to BrowserBase via
+ * CDP, does its work, and the connection closes with the function. BrowserBase
+ * keeps the actual browser alive server-side.
+ *
+ * Credentials never pass through this module's logs; values are written
+ * directly to the DOM.
  */
 
 import {
@@ -19,33 +21,50 @@ import {
 // ---------------------------------------------------------------------------
 
 export interface BrowserSession {
-  id: string;
-  browserbaseSessionId: string;
+  sessionId: string;
   page: Page;
   browser: Browser;
   context: BrowserContext;
   liveViewUrl: string;
-  createdAt: number;
-  close: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
-// Session store (survives Next.js hot-reloads in dev)
+// Helpers
 // ---------------------------------------------------------------------------
 
-const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+function getApiKey(): string {
+  const apiKey = process.env.BROWSERBASE_API_KEY;
+  if (!apiKey) throw new Error("BROWSERBASE_API_KEY must be set");
+  return apiKey;
+}
 
-const g = globalThis as unknown as { __sessions?: Map<string, BrowserSession> };
-const sessions = (g.__sessions ??= new Map<string, BrowserSession>());
+/** Connect Playwright to an existing BrowserBase session over CDP. */
+async function connectToSession(
+  bbSessionId: string,
+): Promise<{ browser: Browser; context: BrowserContext; page: Page }> {
+  const apiKey = getApiKey();
+  const wsEndpoint = `wss://connect.browserbase.com?apiKey=${apiKey}&sessionId=${bbSessionId}`;
+  const browser = await chromium.connectOverCDP(wsEndpoint);
+  const context = browser.contexts()[0];
+  const page = context.pages()[0] || (await context.newPage());
+  page.setDefaultTimeout(15000);
+  return { browser, context, page };
+}
 
-/** Remove sessions that have exceeded the TTL. */
-function reapStaleSessions() {
-  const now = Date.now();
-  for (const [id, session] of sessions) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      console.warn(`[browser] Reaping stale session ${id}`);
-      session.close().catch(() => {});
-    }
+/** Fetch the embeddable live-view URL for a BrowserBase session. */
+async function fetchLiveViewUrl(bbSessionId: string): Promise<string> {
+  const apiKey = getApiKey();
+  const fallback = `https://www.browserbase.com/sessions/${bbSessionId}`;
+  try {
+    const res = await fetch(
+      `https://api.browserbase.com/v1/sessions/${bbSessionId}/debug`,
+      { headers: { "x-bb-api-key": apiKey } },
+    );
+    if (!res.ok) return fallback;
+    const data = await res.json();
+    return data.debuggerFullscreenUrl || fallback;
+  } catch {
+    return fallback;
   }
 }
 
@@ -53,20 +72,12 @@ function reapStaleSessions() {
 // Session lifecycle
 // ---------------------------------------------------------------------------
 
-/** Spin up a new BrowserBase cloud browser and connect via CDP. */
+/** Create a new BrowserBase cloud browser session. */
 export async function createSession(): Promise<BrowserSession> {
-  reapStaleSessions();
-
-  const apiKey = process.env.BROWSERBASE_API_KEY;
+  const apiKey = getApiKey();
   const projectId = process.env.BROWSERBASE_PROJECT_ID;
+  if (!projectId) throw new Error("BROWSERBASE_PROJECT_ID must be set");
 
-  if (!apiKey || !projectId) {
-    throw new Error(
-      "BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID must be set",
-    );
-  }
-
-  // 1. Create a session through the BrowserBase REST API
   const res = await fetch("https://api.browserbase.com/v1/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-bb-api-key": apiKey },
@@ -77,61 +88,36 @@ export async function createSession(): Promise<BrowserSession> {
   });
 
   if (!res.ok) {
-    throw new Error(`BrowserBase session creation failed: ${res.statusText}`);
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `BrowserBase session creation failed: ${res.statusText}${body ? ` — ${body}` : ""}`,
+    );
   }
 
   const data = await res.json();
   const bbSessionId: string = data.id;
 
-  // 2. Connect Playwright over Chrome DevTools Protocol
-  const wsEndpoint: string =
-    data.connectUrl ||
-    `wss://connect.browserbase.com?apiKey=${apiKey}&sessionId=${bbSessionId}`;
-  const browser = await chromium.connectOverCDP(wsEndpoint);
-  const context = browser.contexts()[0];
-  const page = context.pages()[0] || (await context.newPage());
+  const { browser, context, page } = await connectToSession(bbSessionId);
+  const liveViewUrl = await fetchLiveViewUrl(bbSessionId);
 
-  // Set default timeout once — not per-call
-  page.setDefaultTimeout(15000);
+  return { sessionId: bbSessionId, page, browser, context, liveViewUrl };
+}
 
-  // 3. Fetch the embeddable live-view URL
-  const debugRes = await fetch(
-    `https://api.browserbase.com/v1/sessions/${bbSessionId}/debug`,
-    { headers: { "x-bb-api-key": apiKey } },
-  );
-  let liveViewUrl = `https://www.browserbase.com/sessions/${bbSessionId}`;
-  if (debugRes.ok) {
-    const debugData = await debugRes.json();
-    liveViewUrl = debugData.debuggerFullscreenUrl || liveViewUrl;
+/** Reconnect to an existing BrowserBase session by ID. */
+export async function getSession(bbSessionId: string): Promise<BrowserSession> {
+  const { browser, context, page } = await connectToSession(bbSessionId);
+  const liveViewUrl = await fetchLiveViewUrl(bbSessionId);
+  return { sessionId: bbSessionId, page, browser, context, liveViewUrl };
+}
+
+/** Disconnect Playwright from the session (BrowserBase keeps the browser alive). */
+export async function closeSession(bbSessionId: string): Promise<void> {
+  try {
+    const { browser } = await connectToSession(bbSessionId);
+    await browser.close();
+  } catch {
+    // Session may already be closed
   }
-
-  const id = crypto.randomUUID();
-
-  const session: BrowserSession = {
-    id,
-    browserbaseSessionId: bbSessionId,
-    page,
-    browser,
-    context,
-    liveViewUrl,
-    createdAt: Date.now(),
-    close: async () => {
-      await browser.close().catch(() => {});
-      sessions.delete(id);
-    },
-  };
-
-  sessions.set(id, session);
-  return session;
-}
-
-export function getSession(id: string): BrowserSession | undefined {
-  return sessions.get(id);
-}
-
-export async function closeSession(id: string): Promise<void> {
-  const s = sessions.get(id);
-  if (s) await s.close();
 }
 
 // ---------------------------------------------------------------------------
