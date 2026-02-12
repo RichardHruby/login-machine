@@ -77,11 +77,7 @@ export function Chat() {
         <div className="flex items-center gap-3">
           <a href="https://anon.com" target="_blank" rel="noopener noreferrer">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/anon-logo.svg"
-              alt="Anon"
-              className="h-5"
-            />
+            <img src="/anon-logo.svg" alt="Anon" className="h-5" />
           </a>
           <span className="text-white/50 text-[14px]">/</span>
           <span className="text-white/70 text-[14px] font-medium">
