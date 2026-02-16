@@ -13,6 +13,7 @@
 
 import { useRef, useEffect, useCallback, useState } from "react";
 import { Loader2, Globe, Monitor } from "lucide-react";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLoginSession } from "@/hooks/use-login-session";
@@ -172,7 +173,12 @@ export function Chat() {
                     key={url}
                     variant="outline"
                     size="sm"
-                    onClick={() => startSession(url)}
+                    onClick={() => {
+                      posthog.capture("conversation_starter_clicked", {
+                        url,
+                      });
+                      startSession(url);
+                    }}
                     className="text-[12px] text-white/70 border-white/[0.12] rounded-full hover:text-white/90 hover:border-white/25 bg-transparent hover:bg-white/[0.06] gap-1.5"
                   >
                     <Globe className="size-3 text-white/50" />

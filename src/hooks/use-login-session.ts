@@ -13,6 +13,7 @@
  */
 
 import { useState, useRef, useCallback } from "react";
+import posthog from "posthog-js";
 import type { LoginState } from "@/lib/ai-login/types";
 
 // ---------------------------------------------------------------------------
@@ -109,6 +110,7 @@ export function useLoginSession() {
   const currentFormId = useRef<string | null>(null);
   const loadingRetries = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const targetDomainRef = useRef<string | null>(null);
 
   // --- State helpers (stable via useCallback with no deps) ---
 
@@ -145,6 +147,12 @@ export function useLoginSession() {
 
   const processScreen = useCallback(
     (screen: LoginState, sid: string) => {
+      posthog.capture("screen_detected", {
+        session_id: sid,
+        screen_type: screen.type,
+        target_domain: targetDomainRef.current,
+      });
+
       switch (screen.type) {
         case "credential_login_form":
         case "choice_screen":
@@ -202,6 +210,13 @@ export function useLoginSession() {
               text: "Page failed to load after multiple retries.",
             });
             log("error", "Max loading retries exceeded");
+
+            posthog.capture("login_failed", {
+              session_id: sid,
+              target_domain: targetDomainRef.current,
+              error_type: "loading_timeout",
+            });
+
             setBusy(false);
             loadingRetries.current = 0;
           } else {
@@ -227,6 +242,12 @@ export function useLoginSession() {
             text: "Successfully logged in!",
           });
           log("action", "Login complete");
+
+          posthog.capture("login_succeeded", {
+            session_id: sid,
+            target_domain: targetDomainRef.current,
+          });
+
           setCurrentScreen(null);
           setBusy(false);
           break;
@@ -294,9 +315,14 @@ export function useLoginSession() {
           type: "error",
           text: "That doesn't look like a login URL. Try something like gusto.com/login.",
         });
+        posthog.capture("session_start_failed", {
+          url: url.trim(),
+          error_type: "invalid_url",
+        });
         return;
       }
 
+      targetDomainRef.current = new URL(normalised).hostname;
       abortRef.current = new AbortController();
 
       addMsg({ role: "user", text: normalised });
@@ -321,12 +347,26 @@ export function useLoginSession() {
         setSessionId(data.sessionId);
         setLiveViewUrl(data.liveViewUrl);
         log("action", "Browser launched — live view ready");
+
+        posthog.capture("session_started", {
+          url: normalised,
+          session_id: data.sessionId,
+          target_domain: targetDomainRef.current,
+        });
+
         processScreen(data.screen, data.sessionId);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         const msg = e instanceof Error ? e.message : "Unknown error";
         replaceLastLoading({ role: "assistant", type: "error", text: msg });
         log("error", msg);
+
+        posthog.capture("session_start_failed", {
+          url: normalised,
+          error_type: "api_error",
+          error_message: msg,
+        });
+
         setBusy(false);
       }
     },
@@ -381,13 +421,20 @@ export function useLoginSession() {
               });
               break;
 
-            case "screen":
-              log(
-                "thought",
-                `Screen classified: ${(payload.screen as LoginState).type}`,
-              );
-              processScreen(payload.screen as LoginState, sessionId);
+            case "screen": {
+              const resultScreen = payload.screen as LoginState;
+              log("thought", `Screen classified: ${resultScreen.type}`);
+
+              posthog.capture("user_input_submitted", {
+                session_id: sessionId,
+                screen_type: currentScreen.type,
+                target_domain: targetDomainRef.current,
+                success: true,
+              });
+
+              processScreen(resultScreen, sessionId);
               break;
+            }
 
             case "error":
               throw new Error((payload.message as string) || "Unknown error");
@@ -398,6 +445,15 @@ export function useLoginSession() {
         const msg = e instanceof Error ? e.message : "Unknown error";
         replaceLastLoading({ role: "assistant", type: "error", text: msg });
         log("error", msg);
+
+        posthog.capture("user_input_submitted", {
+          session_id: sessionId,
+          screen_type: currentScreen.type,
+          target_domain: targetDomainRef.current,
+          success: false,
+          error_message: msg,
+        });
+
         setBusy(false);
       }
     },
@@ -408,6 +464,11 @@ export function useLoginSession() {
     abortRef.current?.abort();
 
     if (sessionId) {
+      posthog.capture("session_reset", {
+        session_id: sessionId,
+        target_domain: targetDomainRef.current,
+      });
+
       fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -422,6 +483,7 @@ export function useLoginSession() {
     setLogs([]);
     setFormStatuses({});
     currentFormId.current = null;
+    targetDomainRef.current = null;
     loadingRetries.current = 0;
     msgCounter = 0;
     setMessages([WELCOME]);
