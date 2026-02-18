@@ -150,7 +150,12 @@ export async function POST(request: NextRequest) {
       const hasUserInput = Object.values(values).some((v) => v);
       const isUserAction =
         hasUserInput &&
-        ["credential_login_form", "choice_screen", "magic_login_link"].includes(
+        [
+          "credential_login_form",
+          "choice_screen",
+          "magic_login_link",
+          "noop_screen",
+        ].includes(
           screen.type,
         );
 

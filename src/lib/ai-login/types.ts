@@ -8,6 +8,7 @@ export const ScreenType = z.enum([
   "credential_login_form",
   "choice_screen",
   "magic_login_link",
+  "noop_screen",
   "logged_in_screen",
   "loading_screen",
   "blocked_screen",
@@ -55,6 +56,20 @@ export const ChoiceOption = z.object({
     .describe("Playwright locator for this option"),
 });
 
+export const SocialLoginOption = z.object({
+  provider: z
+    .string()
+    .describe(
+      "Provider name in lowercase: google, apple, microsoft, github, okta, etc.",
+    ),
+  buttonText: z
+    .string()
+    .describe("Visible button text, e.g. 'Continue with Google'"),
+  playwrightLocator: z
+    .string()
+    .describe("Playwright locator for the social login button"),
+});
+
 // ---------------------------------------------------------------------------
 // Unified login state schema
 //
@@ -83,6 +98,12 @@ export const LoginStateSchema = z.object({
     .string()
     .optional()
     .describe("Instructions for magic link"),
+  socialLogins: z
+    .array(SocialLoginOption)
+    .optional()
+    .describe(
+      "Social/SSO login buttons on the page (alongside credential form)",
+    ),
   dismissPlaywrightLocator: z
     .string()
     .optional()
@@ -92,6 +113,7 @@ export const LoginStateSchema = z.object({
 export type LoginState = z.infer<typeof LoginStateSchema>;
 export type InputElementType = z.infer<typeof InputElement>;
 export type ChoiceOptionType = z.infer<typeof ChoiceOption>;
+export type SocialLoginOptionType = z.infer<typeof SocialLoginOption>;
 
 // ---------------------------------------------------------------------------
 // Agent messages — returned by handleScreen to describe what happened

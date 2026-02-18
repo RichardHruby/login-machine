@@ -106,6 +106,9 @@ export function useLoginSession() {
   const [formStatuses, setFormStatuses] = useState<Record<string, FormStatus>>(
     {},
   );
+  const [formSubmitLabels, setFormSubmitLabels] = useState<
+    Record<string, string>
+  >({});
 
   const currentFormId = useRef<string | null>(null);
   const loadingRetries = useRef(0);
@@ -156,7 +159,8 @@ export function useLoginSession() {
       switch (screen.type) {
         case "credential_login_form":
         case "choice_screen":
-        case "magic_login_link": {
+        case "magic_login_link":
+        case "noop_screen": {
           loadingRetries.current = 0;
           setCurrentScreen(screen);
 
@@ -380,6 +384,19 @@ export function useLoginSession() {
       const formId = currentFormId.current;
       if (formId) {
         setFormStatuses((prev) => ({ ...prev, [formId]: "submitting" }));
+
+        // Track what was submitted for the collapsed form label
+        if (values.socialLogin && currentScreen.socialLogins) {
+          const provider = currentScreen.socialLogins.find(
+            (sl) => sl.provider === values.socialLogin,
+          );
+          if (provider) {
+            setFormSubmitLabels((prev) => ({
+              ...prev,
+              [formId]: provider.buttonText,
+            }));
+          }
+        }
       }
 
       setBusy(true);
@@ -482,6 +499,7 @@ export function useLoginSession() {
     setBusy(false);
     setLogs([]);
     setFormStatuses({});
+    setFormSubmitLabels({});
     currentFormId.current = null;
     targetDomainRef.current = null;
     loadingRetries.current = 0;
@@ -496,6 +514,7 @@ export function useLoginSession() {
     busy,
     logs,
     formStatuses,
+    formSubmitLabels,
     activeFormId: currentFormId.current,
     startSession,
     submitForm,

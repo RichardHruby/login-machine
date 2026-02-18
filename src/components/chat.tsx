@@ -43,6 +43,7 @@ export function Chat() {
     busy,
     logs,
     formStatuses,
+    formSubmitLabels,
     activeFormId,
     startSession,
     submitForm,
@@ -157,6 +158,7 @@ export function Chat() {
                   busy={busy}
                   activeFormId={activeFormId}
                   formStatuses={formStatuses}
+                  formSubmitLabels={formSubmitLabels}
                   showLabel={i === 0 || messages[i - 1].role !== msg.role}
                 />
               ))}
