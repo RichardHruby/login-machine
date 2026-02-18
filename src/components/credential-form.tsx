@@ -14,13 +14,18 @@ import { Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { InputElementType } from "@/lib/ai-login/types";
+import type {
+  InputElementType,
+  SocialLoginOptionType,
+} from "@/lib/ai-login/types";
 import { cn } from "@/lib/utils";
 
 interface CredentialFormProps {
   inputs: InputElementType[];
   submitLabel: string;
   onSubmit: (values: Record<string, string>) => void;
+  socialLogins?: SocialLoginOptionType[];
+  onSocialLogin?: (provider: string) => void;
   disabled?: boolean;
 }
 
@@ -56,6 +61,8 @@ export function CredentialForm({
   inputs,
   submitLabel,
   onSubmit,
+  socialLogins,
+  onSocialLogin,
   disabled,
 }: CredentialFormProps) {
   const [values, setValues] = useState<Record<string, string>>({});
@@ -123,6 +130,31 @@ export function CredentialForm({
           {submitLabel}
         </Button>
       </div>
+
+      {/* Social login buttons */}
+      {socialLogins && socialLogins.length > 0 && onSocialLogin && (
+        <div className="px-4 pb-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-px flex-1 bg-white/[0.1]" />
+            <span className="text-[11px] text-white/40">or</span>
+            <div className="h-px flex-1 bg-white/[0.1]" />
+          </div>
+          <div className="space-y-1.5">
+            {socialLogins.map((sl) => (
+              <Button
+                key={sl.provider}
+                type="button"
+                variant="outline"
+                disabled={disabled}
+                onClick={() => onSocialLogin(sl.provider)}
+                className="w-full justify-center bg-white/[0.04] border-white/[0.1] text-[13px] text-white/80 hover:bg-white/[0.08] hover:border-white/[0.15] hover:text-white h-auto px-3.5 py-2.5"
+              >
+                {sl.buttonText}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
     </form>
   );
 }

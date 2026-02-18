@@ -48,6 +48,9 @@ function getScreenLocators(screen: LoginState): string[] {
     for (const opt of screen.options)
       locators.push(opt.optionPlaywrightLocator);
   }
+  if (screen.socialLogins) {
+    for (const sl of screen.socialLogins) locators.push(sl.playwrightLocator);
+  }
   if (screen.dismissPlaywrightLocator)
     locators.push(screen.dismissPlaywrightLocator);
   return locators;
@@ -198,6 +201,23 @@ export async function handleScreen(
     // credential_login_form — fill fields + click submit
     // ------------------------------------------------------------------
     case "credential_login_form": {
+      // Social login click — user picked a provider instead of filling the form
+      if (userInput?.socialLogin && screen.socialLogins) {
+        const provider = screen.socialLogins.find(
+          (sl) => sl.provider === userInput.socialLogin,
+        );
+        if (provider) {
+          await clickElement(session.page, provider.playwrightLocator);
+          return {
+            nextScreen: null,
+            message: {
+              type: "action",
+              action: `Clicked ${provider.buttonText}`,
+            },
+          };
+        }
+      }
+
       const hasValues = userInput && Object.values(userInput).some((v) => v);
       if (!hasValues || !screen.inputs || !screen.submit) {
         return {
@@ -300,6 +320,25 @@ export async function handleScreen(
       return {
         nextScreen,
         message: { type: "action", action: "Dismissed blocking popup" },
+      };
+    }
+
+    // ------------------------------------------------------------------
+    // noop_screen — nothing to do in the browser, user acts externally
+    // ------------------------------------------------------------------
+    case "noop_screen": {
+      if (!userInput?.continue) {
+        return {
+          nextScreen: null,
+          message: { type: "input_request", screen },
+        };
+      }
+
+      // No-op — the user already completed the action on their device.
+      // The route will re-analyze the page via SSE.
+      return {
+        nextScreen: null,
+        message: { type: "action", action: "Continuing after external auth" },
       };
     }
 

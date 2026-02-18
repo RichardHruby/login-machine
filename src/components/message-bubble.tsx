@@ -13,6 +13,7 @@
 import { Loader2, Check, LockOpen } from "lucide-react";
 import type { ChatMessage, FormStatus } from "@/hooks/use-login-session";
 import type { LoginState } from "@/lib/ai-login/types";
+import { Button } from "@/components/ui/button";
 import { CredentialForm } from "./credential-form";
 import { ChoiceButtons } from "./choice-buttons";
 import { MagicLinkInput } from "./magic-link-input";
@@ -23,6 +24,7 @@ interface MessageBubbleProps {
   busy: boolean;
   activeFormId: string | null;
   formStatuses: Record<string, FormStatus>;
+  formSubmitLabels: Record<string, string>;
   showLabel?: boolean;
 }
 
@@ -32,6 +34,7 @@ export function MessageBubble({
   busy,
   activeFormId,
   formStatuses,
+  formSubmitLabels,
   showLabel,
 }: MessageBubbleProps) {
   // User message
@@ -125,7 +128,11 @@ export function MessageBubble({
       return (
         <div>
           {assistantLabel}
-          <CollapsedForm screen={screen} status={status} />
+          <CollapsedForm
+            screen={screen}
+            status={status}
+            overrideLabel={formSubmitLabels[formId]}
+          />
         </div>
       );
     }
@@ -141,6 +148,10 @@ export function MessageBubble({
                 inputs={screen.inputs}
                 submitLabel={screen.submit?.label || "Continue"}
                 onSubmit={onFormSubmit}
+                socialLogins={screen.socialLogins}
+                onSocialLogin={(provider) =>
+                  onFormSubmit({ socialLogin: provider })
+                }
                 disabled={busy}
               />
             )}
@@ -158,6 +169,26 @@ export function MessageBubble({
                     onSelect={(choice) => onFormSubmit({ choice })}
                     disabled={busy}
                   />
+                </div>
+              </div>
+            )}
+
+            {screen.type === "noop_screen" && (
+              <div className="rounded-xl border border-white/[0.12] bg-white/[0.04] overflow-hidden">
+                <div className="px-4 pt-3 pb-2">
+                  <p className="text-[13px] text-white/80">
+                    {screen.instructionText ||
+                      "Complete authentication on your device, then click Continue."}
+                  </p>
+                </div>
+                <div className="px-4 pb-4">
+                  <Button
+                    onClick={() => onFormSubmit({ continue: "true" })}
+                    disabled={busy}
+                    className="w-full bg-white text-[#09090b] text-[13px] font-semibold hover:bg-white/90 active:bg-white/80"
+                  >
+                    Continue
+                  </Button>
                 </div>
               </div>
             )}
@@ -194,16 +225,21 @@ export function MessageBubble({
 function CollapsedForm({
   screen,
   status,
+  overrideLabel,
 }: {
   screen: LoginState;
   status: "submitting" | "submitted";
+  overrideLabel?: string;
 }) {
-  const label =
-    screen.type === "credential_login_form" && screen.inputs
+  const label = overrideLabel
+    ? overrideLabel
+    : screen.type === "credential_login_form" && screen.inputs
       ? screen.inputs.map((i) => i.label || i.name).join(", ")
       : screen.type === "choice_screen"
         ? "Selection"
-        : "Link";
+        : screen.type === "noop_screen"
+          ? "Continue"
+          : "Link";
 
   return (
     <div className="flex justify-start w-full">

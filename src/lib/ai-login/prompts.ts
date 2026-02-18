@@ -18,9 +18,16 @@ Use when you see multiple buttons/links representing choices (account selector, 
 - Most choice screens do NOT have a separate submit button — the options themselves are clickable. Only include the submit field if the page truly requires selecting an option (radio button, select box) AND then clicking a separate "Continue"/"Submit" button to confirm. Do not add submit unless it is clearly required.
 
 ### magic_login_link
-Use when the page instructs user to check their email for a verification/magic link.
+Use when the page instructs user to check their email for a verification/magic link that they need to paste back.
 - No active input fields
 - Common patterns: "Check your inbox", "We sent you an email"
+- The user must copy a URL and provide it back to the system
+
+### noop_screen
+Use ONLY when there is not primary call to action (CTA) element in the browser — no buttons, no links, no inputs, nothing to click or fill. The user must complete an action entirely outside the browser (e.g. tap a number on their phone, approve a push notification on another device).
+- CRITICAL: If the page has clickable buttons (like "Continue", "Verify"), it is NOT a noop_screen — classify it as choice_screen instead
+- Extract the instruction text into \`instructionText\`
+- Examples: "Tap 58 on your phone to verify" (with no buttons on the page), "Check your device for a notification" (with no buttons on the page)
 
 ### blocked_screen
 Use when a popup/dialog blocks the login flow and must be dismissed.
@@ -42,9 +49,15 @@ Priority for robust Playwright locators:
 3. Button/link text: button:has-text("Sign In")
 4. Data attributes: [data-testid="login-button"]
 
+## Social Login Detection
+
+When a credential_login_form has social/SSO login buttons (e.g. "Sign in with Google", "Continue with Apple", "Log in with Microsoft"), extract them into the \`socialLogins\` array. Each entry needs: provider name (lowercase: google, apple, microsoft, github, okta, etc.), visible button text, and a Playwright locator.
+
+If a page has ONLY social login buttons with NO credential inputs, classify it as choice_screen instead.
+
 ## Exclusions
 
-Exclude: hidden/disabled fields, cookie banners, social login buttons (Google/Apple/Microsoft), help/privacy/forgot-password links, sign-up links.
+Exclude: hidden/disabled fields, cookie banners, help/privacy/forgot-password links, sign-up links.
 
 ## OTP Detection
 
