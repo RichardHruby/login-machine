@@ -9,10 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.28",
+    "@ai-sdk/anthropic": "^3.0.45",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
-    "ai": "^6.0.57",
+    "ai": "^6.0.92",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
