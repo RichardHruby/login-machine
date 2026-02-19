@@ -32,6 +32,7 @@ import {
 // ---------------------------------------------------------------------------
 
 const MAX_ANALYSIS_RETRIES = 3;
+const ANTHROPIC_ANALYSIS_MODEL = "claude-sonnet-4-5-20250929";
 
 // ---------------------------------------------------------------------------
 // Locator validation helpers
@@ -104,7 +105,7 @@ export async function analyzeLoginPage(
         : "";
 
     const { output: object } = await generateText({
-      model: anthropic("claude-sonnet-4-5-20250929"),
+      model: anthropic(ANTHROPIC_ANALYSIS_MODEL),
       output: Output.object({ schema: LoginStateSchema }),
       system: LOGIN_SCREEN_SYSTEM_PROMPT,
       messages: [
@@ -158,7 +159,7 @@ export async function analyzeLoginPage(
   // Exhausted retries — return best effort
   console.warn("[agent] Exhausted retries, returning unvalidated result");
   const { output: object } = await generateText({
-    model: anthropic("claude-sonnet-4-5-20250929"),
+    model: anthropic(ANTHROPIC_ANALYSIS_MODEL),
     output: Output.object({ schema: LoginStateSchema }),
     system: LOGIN_SCREEN_SYSTEM_PROMPT,
     messages: [
